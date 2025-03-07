@@ -3,11 +3,28 @@ import re
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
+from ong_ppt_translator.process_runs import parse_html_text
 
+
+def limpiar_etiquetas_vacias(texto):
+    # Patrón para encontrar etiquetas que contienen solo espacios o etiquetas vacías
+    patron = r'<([a-z][a-z0-9]*)\b[^>]*>((\s*)|(<([a-z][a-z0-9]*)\b[^>]*>(\s*)</\5>))</\1>'
+
+    # Aplicar reemplazo iterativamente hasta que no haya más cambios
+    texto_anterior = None
+    texto_actual = texto
+
+    while texto_anterior != texto_actual:
+        texto_anterior = texto_actual
+        texto_actual = re.sub(patron, r'\2', texto_anterior)
+
+    return texto_actual
 
 def limpiar_html(texto):
     """Removes all HTML tags but b, i and u"""
-    return re.sub(r"</?(?!b|i|u\b)[a-zA-Z0-9]+.*?>", "", texto)
+    retval = re.sub(r"</?(?!b|i|u\b)[a-zA-Z0-9]+.*?>", "", texto)
+    retval = limpiar_etiquetas_vacias(retval)
+    return retval
 
 
 def extract_markdown_from_shape(shape):
@@ -54,95 +71,6 @@ def extract_markdown_from_shape(shape):
         #     markdown_paragraphs.append(paragraph_markdown)
 
     return markdown_paragraphs, color_paragraphs
-
-
-def parse_markdown_back_to_runs(markdown_text):
-    """
-    Convierte markdown de vuelta a información de runs
-    """
-    # Removes extra tags
-    markdown_text = limpiar_html(markdown_text)
-
-    # Patrones para detectar formatos
-    #bold_pattern = re.compile(r'\*\*(.*?)\*\*')
-    bold_pattern = re.compile(r'<b>(.*?)</b>')
-    #italic_pattern = re.compile(r'\*(.*?)\*')
-    italic_pattern = re.compile(r'<i>(.*?)</i>')
-    underline_pattern = re.compile(r'<u>(.*?)</u>')
-
-    # Estructuras para almacenar información
-    runs = []
-
-    # Funciones auxiliares para detectar formato
-    def process_run(text):
-        run_info = {
-            'text': text,
-            'bold': None,
-            'italic': None,
-            'underline': None,
-        }
-
-        # Verificar y limpiar formatos
-        if bold_pattern.fullmatch(text):
-            run_info['bold'] = True
-            text = bold_pattern.match(text).group(1)
-
-        if italic_pattern.fullmatch(text):
-            run_info['italic'] = True
-            text = italic_pattern.match(text).group(1)
-
-        if underline_pattern.fullmatch(text):
-            run_info['underline'] = True
-            text = underline_pattern.match(text).group(1)
-
-        run_info['text'] = text
-        return run_info
-
-    # Procesar texto con diferentes formatos
-    current_text = markdown_text
-
-    # Buscar y procesar diferentes formatos
-    while current_text:
-        # Priorizar bold, luego italic, luego underline
-        if bold_match := bold_pattern.search(current_text):
-            # Texto antes del bold
-            if bold_match.start() > 0:
-                runs.append(process_run(current_text[:bold_match.start()]))
-
-            # Run bold
-            runs.append(process_run(bold_match.group(0)))
-
-            # Actualizar texto restante
-            current_text = current_text[bold_match.end():]
-
-        elif italic_match := italic_pattern.search(current_text):
-            # Texto antes del italic
-            if italic_match.start() > 0:
-                runs.append(process_run(current_text[:italic_match.start()]))
-
-            # Run italic
-            runs.append(process_run(italic_match.group(0)))
-
-            # Actualizar texto restante
-            current_text = current_text[italic_match.end():]
-
-        elif underline_match := underline_pattern.search(current_text):
-            # Texto antes del underline
-            if underline_match.start() > 0:
-                runs.append(process_run(current_text[:underline_match.start()]))
-
-            # Run underline
-            runs.append(process_run(underline_match.group(0)))
-
-            # Actualizar texto restante
-            current_text = current_text[underline_match.end():]
-
-        else:
-            # Sin más formatos especiales
-            runs.append(process_run(current_text))
-            break
-
-    return runs
 
 
 def is_text_shape(shape):
@@ -200,7 +128,7 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
                 translated_markdown = translate_text_with_openai(markdown_paragraph)
 
                 # Convertir markdown traducido a runs
-                translated_runs = parse_markdown_back_to_runs(translated_markdown)
+                translated_runs = parse_html_text(translated_markdown)
 
                 # Añadir párrafo traducido
                 if hasattr(shape, 'text_frame'):
