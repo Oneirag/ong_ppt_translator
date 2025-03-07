@@ -3,7 +3,7 @@ from typing import Literal
 import openai
 from pydantic import BaseModel, Field
 
-from ong_ppt_translator import MODEL, client
+from ong_ppt_translator import MODEL, client, logger
 import os
 
 
@@ -54,13 +54,13 @@ def translate_text_with_openai(text: str) -> str:
             if retval.startswith("\n") and not text.startswith("\n"):
                 retval = retval[1:]
         elif response.refusal:
-            print(response.refusal)
+            logger.error(response.refusal)
     except Exception as e:
         if type(e) == openai.LengthFinishReasonError:
-            print("Too many tokens: ", e)
+            logger.error(f"Too many tokens: {e}")
             pass
         else:
-            print(e)
+            logger.exception(e)
             pass
 
     # response = client.chat(
@@ -72,7 +72,7 @@ def translate_text_with_openai(text: str) -> str:
     #     format=Translation.model_json_schema()
     # )
     # retval = Translation.model_validate_json(response.message.content).translated_text
-    print(f"Translated '{text}' -> '{retval}'")
+    logger.info(f"Translated '{text}' -> '{retval}'")
     return retval
 
 

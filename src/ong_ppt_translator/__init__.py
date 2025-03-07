@@ -1,3 +1,5 @@
+import logging
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -5,6 +7,9 @@ import os
 from openai import OpenAI
 import httpx
 import ssl
+from ong_ppt_translator.setup_logger import setup_logger
+
+logger = setup_logger("ong_ppt_translator", "ong_ppt_translator.log", log_level=logging.DEBUG)
 
 
 if not os.getenv("MODEL") or not os.getenv("BASE_URL") or not os.getenv("API_KEY"):

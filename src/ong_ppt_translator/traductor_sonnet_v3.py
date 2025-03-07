@@ -4,6 +4,7 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
 from ong_ppt_translator.process_runs import parse_html_text
+from ong_ppt_translator import logger
 
 
 def limpiar_etiquetas_vacias(texto):
@@ -103,14 +104,15 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
     for idx_slide, slide in enumerate(prs.slides):
         if (end and idx_slide > end) or (start and idx_slide < start) :
             continue
-        for shape in slide.shapes:
+        logger.info(f"Processing slide {idx_slide + 1}")
+        for shape in iter_shapes(slide.shapes):
             # Verificar si es un shape con texto
             if not is_text_shape(shape):
                 continue
             try:
-                print(f"Processing {shape.text}")
+                logger.debug(f"Processing {shape.text}")
             except:
-                print("Shape has no text")
+                logger.debug("Shape has no text")
             # Extraer markdown
             markdown_paragraphs, color_paragraphs = extract_markdown_from_shape(shape)
 
@@ -170,8 +172,7 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
                             #     except Exception as e:
                             #         print(e)
                             if new_run.font.color.type != run_color.type:
-                                print(f"Error changing color of {new_run.text}")
-
+                                logger.warning(f"Error changing color of {new_run.text}")
 
     # Guardar presentación traducida
     prs.save(output_file)
