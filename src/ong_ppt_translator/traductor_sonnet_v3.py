@@ -2,7 +2,7 @@ from ong_ppt_translator.translate_text import translate_text_with_openai
 import re
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.enum.dml import MSO_COLOR_TYPE
+from pptx.enum.dml import MSO_COLOR_TYPE, MSO_THEME_COLOR_INDEX
 from ong_ppt_translator.process_runs import parse_html_text
 from ong_ppt_translator import logger
 
@@ -90,6 +90,13 @@ def is_text_shape(shape):
             (hasattr(shape, 'shape_type') and shape.shape_type in text_shape_types)
     )
 
+def iter_shapes(shapes: list):
+    for shape in shapes:
+        if not shape.shape_type is MSO_SHAPE_TYPE.GROUP:
+            yield shape
+        else:
+            yield from iter_shapes(shape.shapes)
+
 
 
 def translate_powerpoint(input_file, output_file, end: int=None, start: int=None):
@@ -162,15 +169,22 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
                         except Exception as e:
                             run_color = None
                         if run_color:
-                            if run_color.type == MSO_COLOR_TYPE.RGB:
-                                new_run.font.color.rgb = run_color.rgb
-                            else:
-                                new_run.font.color.theme_color= run_color.theme_color
+                            match run_color.type:
+                                case MSO_COLOR_TYPE.RGB:
+                                    attr = "rgb"
+                                case MSO_COLOR_TYPE.PRESET:
+                                    if run_color.theme_color == MSO_THEME_COLOR_INDEX.NOT_THEME_COLOR:
+                                        attr = None
+                                    else:
+                                        attr = "theme_color"
+                                case _:
+                                    attr = None
+                            if attr:
+                                try:
+                                    setattr(new_run.font.color, attr, getattr(run_color, attr))
+                                except Exception as e:
+                                    logger.exception(e)
                             # for attr in "theme_color", "rgb":
-                            #     try:
-                            #         setattr(new_run.font.color, attr, getattr(run_color, attr))
-                            #     except Exception as e:
-                            #         print(e)
                             if new_run.font.color.type != run_color.type:
                                 logger.warning(f"Error changing color of {new_run.text}")
 
