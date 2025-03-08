@@ -1,4 +1,6 @@
+import dataclasses
 from typing import Literal
+from time import time
 
 from pydantic import BaseModel, Field
 
@@ -7,9 +9,21 @@ import os
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
+@dataclasses.dataclass
+class TranslationOutput:
+    text: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    seconds: float = 0.0
+
+
 @retry(wait=wait_fixed(1), reraise=True, stop=stop_after_attempt(3))
-def _translate(text, source_lang, target_lang, extra_context):
-    retval = text
+def _translate(text, source_lang, target_lang, extra_context) -> TranslationOutput:
+    """
+    Translates text and returns translated text, input tokens and output tokens
+    """
+    retval = TranslationOutput(text)
+    tic = time()
     completion = client.beta.chat.completions.parse(
         model=MODEL,
         messages=[
@@ -42,18 +56,26 @@ def _translate(text, source_lang, target_lang, extra_context):
  #           # force no translation if original language was detected as english
  #           retval = text
  #       else:
-            retval = response.parsed.translated_text
+            retval = TranslationOutput(response.parsed.translated_text,
+                                       prompt_tokens=completion.usage.prompt_tokens,
+                                       completion_tokens=completion.usage.completion_tokens,
+                                       seconds=time() - tic
+                                       )
+
     elif response.refusal:
         logger.error(response.refusal)
     logger.info(f"Translated '{text}' -> '{retval}'")
     return retval
 
 
-def translate_text_with_openai(text: str) -> str:
+def translate_text_with_openai(text: str) -> TranslationOutput:
+    """
+    Translates text and returns translated text, input tokens and output tokens
+    """
     source_lang = os.getenv("SOURCE_LANG") or "spanish"
     target_lang = os.getenv("TARGET_LANG") or "english"
     extra_context = os.getenv("EXTRA_CONTEXT") or ""
-    retval = text
+    retval = TranslationOutput(text)
     if not text or text.isspace():
         return retval
     try:
@@ -61,7 +83,7 @@ def translate_text_with_openai(text: str) -> str:
     except Exception as e:
         logger.exception(e)
         logger.error(f"Could not translate '{text}'")
-        return text
+        return TranslationOutput(text)
 
 
 class Translation(BaseModel):

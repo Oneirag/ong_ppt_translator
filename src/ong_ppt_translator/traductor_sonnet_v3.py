@@ -107,6 +107,10 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
     # Cargar presentación
     prs = Presentation(input_file)
 
+    prompt_tokens = 0
+    completion_tokens = 0
+    llm_time = 0
+
     # Iterar sobre todas las diapositivas
     for idx_slide, slide in enumerate(prs.slides):
         if (end and idx_slide > end) or (start and idx_slide < start) :
@@ -134,10 +138,13 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
             # Traducir y reformatear
             for idx, markdown_paragraph in enumerate(markdown_paragraphs):
                 # Traducir texto
-                translated_markdown = translate_text_with_openai(markdown_paragraph)
+                translation = translate_text_with_openai(markdown_paragraph)
+                prompt_tokens += translation.prompt_tokens
+                completion_tokens += translation.completion_tokens
+                llm_time += translation.seconds
 
                 # Convertir markdown traducido a runs
-                translated_runs = parse_html_text(translated_markdown)
+                translated_runs = parse_html_text(translation.text)
 
                 # Añadir párrafo traducido
                 if hasattr(shape, 'text_frame'):
@@ -190,6 +197,7 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
 
     # Guardar presentación traducida
     prs.save(output_file)
+    logger.info(f"Translation took {prompt_tokens=} {completion_tokens=} in {llm_time:.2f} seconds")
 
 
 if __name__ == '__main__':
