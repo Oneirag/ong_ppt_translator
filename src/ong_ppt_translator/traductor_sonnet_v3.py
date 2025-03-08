@@ -1,10 +1,12 @@
-from ong_ppt_translator.translate_text import translate_text_with_openai
 import re
+
 from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE, MSO_THEME_COLOR_INDEX
-from ong_ppt_translator.process_runs import parse_html_text
+from pptx.enum.shapes import MSO_SHAPE_TYPE
+
 from ong_ppt_translator import logger
+from ong_ppt_translator.process_runs import parse_html_text
+from ong_ppt_translator.translate_text import translate_text_with_openai
 
 
 def limpiar_etiquetas_vacias(texto):
@@ -20,6 +22,7 @@ def limpiar_etiquetas_vacias(texto):
         texto_actual = re.sub(patron, r'\2', texto_anterior)
 
     return texto_actual
+
 
 def limpiar_html(texto):
     """Removes all HTML tags but b, i and u"""
@@ -80,8 +83,8 @@ def is_text_shape(shape):
     """
     text_shape_types = [
         MSO_SHAPE_TYPE.TEXT_BOX,
-        #MSO_SHAPE_TYPE.RECTANGLE,
-        #MSO_SHAPE_TYPE.ROUNDED_RECTANGLE,
+        # MSO_SHAPE_TYPE.RECTANGLE,
+        # MSO_SHAPE_TYPE.ROUNDED_RECTANGLE,
         MSO_SHAPE_TYPE.PLACEHOLDER
     ]
 
@@ -90,16 +93,20 @@ def is_text_shape(shape):
             (hasattr(shape, 'shape_type') and shape.shape_type in text_shape_types)
     )
 
+
 def iter_shapes(shapes: list):
     for shape in shapes:
-        if not shape.shape_type is MSO_SHAPE_TYPE.GROUP:
+        if not hasattr(shape, "shape_type"):
             yield shape
-        else:
+        elif shape.shape_type is MSO_SHAPE_TYPE.TABLE:
+            yield from iter_shapes(shape.table.iter_cells())
+        elif shape.shape_type is MSO_SHAPE_TYPE.GROUP:
             yield from iter_shapes(shape.shapes)
+        else:
+            yield shape
 
 
-
-def translate_powerpoint(input_file, output_file, end: int=None, start: int=None):
+def translate_powerpoint(input_file, output_file, end: int = None, start: int = None):
     """
     Traduce una presentación de PowerPoint usando markdown
     """
@@ -113,7 +120,7 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
 
     # Iterar sobre todas las diapositivas
     for idx_slide, slide in enumerate(prs.slides):
-        if (end and idx_slide > end) or (start and idx_slide < start) :
+        if (end and idx_slide > end) or (start and idx_slide < start):
             continue
         logger.info(f"Processing slide {idx_slide + 1}")
         for shape in iter_shapes(slide.shapes):
@@ -201,11 +208,10 @@ def translate_powerpoint(input_file, output_file, end: int=None, start: int=None
 
 
 if __name__ == '__main__':
-
     pass
     # Uso del script
-    #input_file = 'presentacion_original.pptx'
+    # input_file = 'presentacion_original.pptx'
     # output_file = 'presentacion_traducida.pptx'
     # translate_powerpoint(input_file, output_file, start=22-1, end=22-1) #, end=7) #, start=6)
 
-    #print(f"Presentación traducida guardada en {output_file}")
+    # print(f"Presentación traducida guardada en {output_file}")
