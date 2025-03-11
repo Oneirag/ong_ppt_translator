@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 from pptx import Presentation
 from pptx.enum.dml import MSO_COLOR_TYPE, MSO_THEME_COLOR_INDEX
@@ -66,7 +67,8 @@ def extract_markdown_from_shape(shape):
                 text = f"<u>{text}</u>"
 
             paragraph_markdown += text
-            color = run.font.color if run.font.color.type else None
+            # color = run.font.color if run.font.color.type else None
+            color = None
             color_paragraphs[-1].append(color)
         markdown_paragraphs.append(paragraph_markdown)
 
@@ -106,13 +108,17 @@ def iter_shapes(shapes: list):
             yield shape
 
 
-def translate_powerpoint(input_file, output_file, end: int = None, start: int = None):
+def translate_powerpoint(input_file, output_file: str | Path = None, end: int = None, start: int = None):
     """
     Traduce una presentación de PowerPoint usando markdown
     """
 
+    input_file = Path(input_file)
+    if output_file is None:
+        output_file = input_file.with_stem(input_file.stem + "_translated")
+
     # Cargar presentación
-    prs = Presentation(input_file)
+    prs = Presentation(str(input_file))
 
     prompt_tokens = 0
     completion_tokens = 0
@@ -127,6 +133,7 @@ def translate_powerpoint(input_file, output_file, end: int = None, start: int = 
             # Verificar si es un shape con texto
             if not is_text_shape(shape):
                 continue
+            print(original_blob := shape.part.blob)
             try:
                 logger.debug(f"Processing {shape.text}")
             except:
@@ -203,7 +210,7 @@ def translate_powerpoint(input_file, output_file, end: int = None, start: int = 
                                 logger.warning(f"Error changing color of {new_run.text}")
 
     # Guardar presentación traducida
-    prs.save(output_file)
+    prs.save(str(output_file))
     logger.info(f"Translation took {prompt_tokens=} {completion_tokens=} in {llm_time:.2f} seconds")
 
 

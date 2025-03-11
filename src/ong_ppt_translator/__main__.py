@@ -5,7 +5,7 @@ import argparse
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
     args.add_argument("--input_file", type=str, required=True)
-    args.add_argument("--output_file", type=str, required=True)
+    args.add_argument("--output_file", type=str, required=False)
     args.add_argument("--start", type=int, required=False)
     args.add_argument("--end", type=int, required=False)
     parsed_args = args.parse_args()
